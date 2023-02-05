@@ -1,0 +1,221 @@
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+local mainFolder = Instance.new("Folder", workspace)
+
+mainFolder.Name = "billions"
+local highlightFolder = Instance.new("Folder", workspace.billions)
+highlightFolder.Name = "chams"
+
+
+
+
+
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+
+local espTargets = {}
+
+local highlightFolder = workspace.billions.chams
+
+local espSettings = {
+    renders_distance = 1000;
+
+    chams_toggled = false;
+    chams_fill_color = Color3.fromRGB(255,255,255);
+    chams_fill_trans = 0;
+    chams_outline_color = Color3.fromRGB(255,255,255);
+    cams_outline_trans = 0;
+
+    box_toggled = false;
+    box_filled = false;
+    box_color = Color3.fromRGB(255,255,255);
+    box_fill_color = Color3.fromRGB(255,255,255);
+    box_fill_trans = 0;
+
+    names_toggled = false;
+    distance_toggled = false;
+    weapon_toggled = false;
+    text_color = Color3.fromRGB(255,255,255);
+
+    health_toggled = false;
+    health_color_from = Color3.fromRGB(255,255,255);
+    health_color_to = Color3.fromRGB(255,255,255);
+}
+
+local espFunctions = {}
+
+local function  transitionColor(color1, color2, offset)
+    if offset > 1 then
+        local left = offset % 1
+        local off = offset
+        if off % 2 == 0 then
+            offset = left
+        else
+            offset = 1 - left
+        end
+    end
+    local inverse_percent = 1 - offset
+    redPart = color1.R * inverse_percent + color2.R * offset
+    greenPart = color1.G * inverse_percent + color2.G * offset
+    bluePart = color1.B * inverse_percent + color2.B * offset
+    return Color3.new(redPart, greenPart, bluePart)
+end
+
+local function hideDrawings(v)
+	v.box.Visible = false
+    v.outline.Visible = false
+    v.boxfill.Visible = false
+    v.healthbar.Visible = false
+    v.healthoutline.Visible = false
+    v.name.Visible = false
+    v.weapon.Visible = false
+    v.distance.Visible = false
+    v.health.Visible = false
+end
+
+local function addPlayerESP(p)
+    if p ~= localPlayer then
+		if espTargets[p] == nil then
+			espTargets[p] = {
+				outline = newDrawing("Square", {Filled = false, Thickness = 3, Color = Color3.fromRGB(0,0,0)});
+				box = newDrawing("Square", {Filled = false, Thickness = 1});
+				boxfill = newDrawing("Square", {Filled = true, Thickness = 1});
+				healthoutline = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0,0,0)});
+				healthbar = newDrawing("Line", {Thickness = 1});
+				name = newDrawing("Text", {Size = 13, Font = 2, Center = true, Outline = true});
+				weapon = newDrawing("Text", {Size = 13, Font = 2, Center = true, Outline = true});
+				distance = newDrawing("Text", {Size = 13, Font = 2, Center = false, Outline = true});
+				health = newDrawing("Text", {Size = 12, Font = 2, Center = true, Outline = true, Color = Color3.fromRGB(255,255,255)});
+				highlight = newObject("Highlight", {Parent = highlightFolder, Name = p.Name});
+			}
+		end
+	end
+end
+
+local function updatePlayerESP()
+	for player, v in next, espTargets do
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Head") then
+			--highlight
+			v.highlight.Enabled = espSettings.chams_toggled
+			v.highlight.Adornee = player.Character
+			v.highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			v.highlight.FillColor = espSettings.chams_fill_color
+			v.highlight.FillTransparency = espSettings.chams_fill_trans
+			v.highlight.OutlineColor = espSettings.chams_outline_color
+			v.highlight.OutlineTransparency = espSettings.chams_outline_trans
+
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			local head = player.Character:FindFirstChild("Head")
+			local lF = player.Character:FindFirstChild("LeftFoot")
+			local rF = player.Character:FindFirstChild("RightFoot")
+			if head and hrp and lF and rF then
+				local headOrigin = hrp.Position + Vector3.new(0,2.4,0)
+				local feetOrigin = hrp.Position - Vector3.new(0,3.3,0)
+				local headPos = camera:WorldToViewportPoint(headOrigin)
+				local feetPos = camera:WorldToViewportPoint(feetOrigin)
+				local centerPos = camera:WorldToViewportPoint(getVectorDifference(headOrigin, feetOrigin))
+				local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+				local difference = (headPos.Y - feetPos.Y)
+				difference = normalize(difference)
+				difference = math.max(difference, 16)
+
+				local check = onScreen and (player.Character.Humanoid.Health > 0) and (getDistance(hrp.Position) <= espSettings.renders_distance)
+
+				if check then
+					v.box.Color = espSettings.box_color
+					v.boxfill.Color = espSettings.box_fill_color
+					v.boxfill.Transparency = espSettings.box_fill_trans
+					v.name.Color = espSettings.text_color
+					v.distance.Color = espSettings.text_color
+					v.weapon.Color = espSettings.text_color
+
+					v.box.Size = Vector2.new(math.floor(difference*0.6), math.floor(difference))
+					v.box.Position = Vector2.new(math.floor(centerPos.X - v.box.Size.X / 2), math.floor(centerPos.Y - v.box.Size.Y / 2))
+					v.box.Visible = espSettings.box_toggled
+
+					v.outline.Size = v.box.Size
+					v.outline.Position = v.box.Position
+					v.outline.Visible = espSettings.box_toggled
+
+					v.boxfill.Size = v.box.Size
+					v.boxfill.Position = v.box.Position
+					v.boxfill.Visible = espSettings.box_filled and espSettings.box_toggled
+
+					local healthMult = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth
+					--v.healthbar.Color = Color3.fromRGB(255 - (255*healthMult), 255*healthMult, 0)
+					v.healthbar.Color = transitionColor(espSettings.health_color_from, espSettings.health_color_to, healthMult)
+					v.healthbar.From = Vector2.new(v.box.Position.X - 4, (centerPos.Y - v.box.Size.Y / 2) + (difference - (difference * healthMult)))
+					v.healthbar.To = Vector2.new(v.box.Position.X - 4, centerPos.Y + v.box.Size.Y / 2)
+					v.healthbar.Visible = espSettings.health_toggled
+
+					v.healthoutline.From = Vector2.new(v.box.Position.X - 4, centerPos.Y - v.box.Size.Y / 2)
+					v.healthoutline.To = Vector2.new(v.box.Position.X - 4, centerPos.Y + v.box.Size.Y / 2)
+					v.healthoutline.Visible = espSettings.health_toggled
+
+					v.health.Text = tostring(round(player.Character.Humanoid.Health))
+					v.health.Position = Vector2.new(v.healthbar.From.X, v.healthbar.From.Y - v.health.TextBounds.Y/2)
+					v.health.Visible = player.Character.Humanoid.Health < player.Character.Humanoid.MaxHealth and espSettings.health_toggled
+
+					v.name.Text = player.Name
+					v.name.Position = Vector2.new(centerPos.X, (centerPos.Y - v.box.Size.Y / 2) - v.name.TextBounds.Y - 4)
+					v.name.Visible = espSettings.names_toggled
+
+					v.distance.Text = tostring(round(getDistance(hrp.Position))).."m"
+					v.distance.Position = Vector2.new(centerPos.X + v.box.Size.X / 2 + 2, v.box.Position.Y)
+					v.distance.Visible = espSettings.distance_toggled
+
+					local weaponText = espFunctions.getWeaponText(player)
+					if weaponText then
+						v.weapon.Text = weaponText
+					end
+					v.weapon.Position = Vector2.new(centerPos.X, (centerPos.Y + v.box.Size.Y / 2) + 2)
+					v.weapon.Visible = espSettings.weapon_toggled and weaponText ~= nil
+				else
+					hideDrawings(v)
+				end
+			end
+		else
+			hideDrawings(v)
+		end
+    end
+end
+
+for i,p in next, players:GetPlayers() do
+    addPlayerESP(p)
+end
+
+players.PlayerAdded:Connect(function (p)
+    addPlayerESP(p)
+end)
+
+players.PlayerRemoving:Connect(function (p)
+    if espTargets[p] then
+        removeDrawing(espTargets[p].name)
+        removeDrawing(espTargets[p].weapon)
+        removeDrawing(espTargets[p].distance)
+        removeDrawing(espTargets[p].health)
+        removeDrawing(espTargets[p].outline)
+        removeDrawing(espTargets[p].box)
+        removeDrawing(espTargets[p].boxfill)
+        removeDrawing(espTargets[p].healthoutline)
+        removeDrawing(espTargets[p].healthbar)
+        espTargets[p].highlight:Destroy()
+        espTargets[p] = nil
+    end
+end)
+
+runService.RenderStepped:Connect(function()
+    updatePlayerESP()
+end)
+
+espFunctions.getWeaponText = function(player)
+    return "None"
+end
+
+getgenv().espSettings = espSettings
+getgenv().espFunctions = espFunctions
+
